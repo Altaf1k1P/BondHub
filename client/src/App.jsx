@@ -1,5 +1,6 @@
 import Navbar from "./component/Header/Navbar.jsx"
 import { Outlet } from "react-router-dom"
+import './App.css'
 function App() {
  
 

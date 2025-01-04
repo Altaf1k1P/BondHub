@@ -30,7 +30,7 @@ router.route('/logout').post(verifyJWT, logout)
 router.route("/current-user").get(verifyJWT, getCurrentUser)
 
 // Get recommended friends
-router.route("/recommend-friends").get(verifyJWT, recommendFriends)
+router.route("/recommend-friends/:userId").get(verifyJWT, recommendFriends)
 
 // Search users
 router.route("/search-users").get(verifyJWT, searchUsers)

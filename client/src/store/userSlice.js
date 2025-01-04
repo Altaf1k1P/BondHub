@@ -15,6 +15,7 @@ const initialState = {
    
 };
 
+
 // Thunks
 
 // User Registration
@@ -46,12 +47,29 @@ export const loginUser = createAsyncThunk(
     }
 );
 
+//search 
+export const searchUsers = createAsyncThunk(
+    'search/searchUsers',
+    async (query, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get('/search-users', {
+                params: { query },
+            });
+            return response.data; // Returns the array of users
+        } catch (error) {
+            return rejectWithValue(
+                error.response?.data?.error || 'Failed to search users'
+            );
+        }
+    }
+);
+
 // Fetch Current User
 export const fetchCurrentUser = createAsyncThunk(
     "user/fetchCurrentUser",
     async (_, thunkAPI) => {
         try {
-            const response = await axiosInstance.get(`${API_URL}/auth/me`, { withCredentials: true });
+            const response = await axiosInstance.get(`/auth/me`, { withCredentials: true });
             return response.data.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -64,7 +82,7 @@ export const fetchFriends = createAsyncThunk(
     "user/fetchFriends",
     async (userId, thunkAPI) => {
         try {
-            const response = await axiosInstance.get(`${API_URL}/friends/${userId}`);
+            const response = await axiosInstance.get(`send-friend-request/friends/${userId}`);
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -77,7 +95,19 @@ export const sendFriendRequest = createAsyncThunk(
     "user/sendFriendRequest",
     async ({ senderId, receiverId }, thunkAPI) => {
         try {
-            const response = await axiosInstance.post(`${API_URL}/friends/send-friend-request`, { senderId, receiverId });
+            const response = await axiosInstance.post('/send-friend-request', { senderId, receiverId });
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response.data.message);
+        }
+    }
+);
+
+export const RespondToRriendRequest = createAsyncThunk(
+    "user/RespondToRriendRequest",
+    async ({ requestId }, thunkAPI) => {
+        try {
+            const response = await axiosInstance.post('/respond-to-friend-request', { requestId });
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -90,7 +120,7 @@ export const fetchRecommendations = createAsyncThunk(
     "user/fetchRecommendations",
     async (userId, thunkAPI) => {
         try {
-            const response = await axiosInstance.get(`${API_URL}/friends/recommend/${userId}`);
+            const response = await axiosInstance.get(`/friends/recommend/${userId}`);
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -110,6 +140,9 @@ const userSlice = createSlice({
             state.recommendations = [];
             state.isAuthenticated = false;
         },
+        clearSearch: (state) => {
+            state.error = null;
+        }
     },
     extraReducers: (builder) => {
         // Registration
@@ -198,6 +231,19 @@ const userSlice = createSlice({
             state.recommendations = payload;
         });
         builder.addCase(fetchRecommendations.rejected, (state, {payload}) => {
+            state.isLoading = false;
+            state.error = payload;
+        })
+        .addCase(searchUsers.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+            state.recommendations = []
+        })
+        .addCase(searchUsers.fulfilled, (state, {payload}) => {
+            state.isLoading = false;
+            state.recommendations = payload
+        })
+        .addCase(searchUsers.rejected, (state, {payload}) => {
             state.isLoading = false;
             state.error = payload;
         });
