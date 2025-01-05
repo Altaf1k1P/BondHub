@@ -1,7 +1,7 @@
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { FriendRequest } from "../models/FriendRequest.model.js";
+import { FriendRequest } from "../models/friendRequest.model.js";
 import { FriendList } from "../models/friendList.model.js";
 import jwt from "jsonwebtoken";
 
