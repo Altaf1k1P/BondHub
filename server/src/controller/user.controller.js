@@ -4,7 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { FriendRequest } from "../models/friendRequest.model.js";
 import { FriendList } from "../models/friendList.model.js";
 import jwt from "jsonwebtoken";
-
+import mongoose from "mongoose";
 // Generate access and refresh tokens
 const genrateAccessAndRefreshToken = async (userId) => {
     try {
@@ -217,6 +217,8 @@ const refreshAccessToken = async (req, res) => {
 };
 // Send Friend Request
 const sendFriendRequest = async (req, res) => {
+    //console.log(req.body);
+    
     const { senderId, receiverId } = req.body;
 
     if (senderId === receiverId) {
@@ -229,7 +231,7 @@ const sendFriendRequest = async (req, res) => {
         const receiver = await User.findById(receiverId);
 
         if (!sender || !receiver) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(405).json({ error: "User not found" });
         }
 
         const existingRequest = await FriendRequest.findOne({ sender: senderId, receiver: receiverId });
@@ -246,7 +248,7 @@ const sendFriendRequest = async (req, res) => {
 };
 
 const fetchFriendRequest = async (req, res) => {
-    const userId = req.user._id;  // Assuming the user is authenticated
+    const userId = req.user._id; // Assuming the user is authenticated
 
     try {
         const requests = await FriendRequest.find({ receiver: userId }).populate('sender', 'username profilePicture');
@@ -260,14 +262,17 @@ const fetchFriendRequest = async (req, res) => {
 
 // Respond to Friend Request
 const respondToFriendRequest = async (req, res) => {
-    console.log(req.body);
-    
+    //console.log(req.body);
+
     const { requestId, status } = req.body;
 
     // Validate the status
     if (!["accepted", "rejected"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
     }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
         // Find the friend request by ID and populate sender info
@@ -281,50 +286,57 @@ const respondToFriendRequest = async (req, res) => {
             // Add sender and receiver to each other's friends list
             await User.findByIdAndUpdate(request.sender, {
                 $addToSet: { friends: request.receiver }
-            });
+            }, { session });
             await User.findByIdAndUpdate(request.receiver, {
                 $addToSet: { friends: request.sender }
-            });
+            }, { session });
 
             // Optionally: Add the friends to the FriendList collection as well
             await FriendList.findOneAndUpdate(
                 { user: request.sender },
                 { $addToSet: { friends: request.receiver } },
-                { upsert: true }
+                { upsert: true, session }
             );
             await FriendList.findOneAndUpdate(
                 { user: request.receiver },
                 { $addToSet: { friends: request.sender } },
-                { upsert: true }
+                { upsert: true, session }
             );
         }
 
         if (status === "rejected") {
             // Delete the friend request when rejected
-            await FriendRequest.findByIdAndDelete(requestId);
+            await FriendRequest.findByIdAndDelete(requestId, { session });
         }
 
         // Update the request status (accepted or rejected)
         request.status = status;
-        await request.save();
+        await request.save({ session });
 
+        // Commit the transaction if everything goes fine
+        await session.commitTransaction();
         res.status(200).json({ message: `Friend request ${status}` });
     } catch (error) {
+        // Abort the transaction on error
+        await session.abortTransaction();
         res.status(500).json({ error: "Server error: " + error.message });
+    } finally {
+        // End the session
+        session.endSession();
     }
 };
 
 
 // Get Friend List
 const getFriendList = async (req, res) => {
-    console.log("Fetching friend list for user:", req.params.userId);
+   // console.log("Fetching friend list for user:", req.params.userId);
     const { userId } = req.params;
 
     try {
         const friendList = await FriendList.findOne({ user: userId }).populate("friends", "username email profilePicture");
           console.log("list", friendList);
           
-        if (!friendList) {
+        if (!friendList || friendList.length === 0) {
             return res.status(404).json({ error: "No friends found" });
         }
 
@@ -375,8 +387,74 @@ const recommendFriends = async (req, res) => {
     }
 };
 
+// Unfollow a user
+
+const unfollowUser = async (req, res) => {
+    const { senderId, receiverId } = req.body;
+
+    if (senderId === receiverId) {
+        return res.status(400).json({ error: "You cannot unfollow yourself" });
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Check if both sender and receiver exist
+        const sender = await User.findById(senderId);
+        const receiver = await User.findById(receiverId);
+
+        if (!sender || !receiver) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Ensure that sender and receiver are friends before unfollowing
+        if (!sender.friends.includes(receiverId) || !receiver.friends.includes(senderId)) {
+            return res.status(400).json({ error: "You are not friends, cannot unfollow" });
+        }
+
+        // Remove receiver from sender's friend list
+        await User.findByIdAndUpdate(senderId, {
+            $pull: { friends: receiverId }
+        }, { session });
+
+        // Remove sender from receiver's friend list
+        await User.findByIdAndUpdate(receiverId, {
+            $pull: { friends: senderId }
+        }, { session });
+
+        // Remove them from the FriendList collection as well
+        await FriendList.findOneAndUpdate(
+            { user: senderId },
+            { $pull: { friends: receiverId } },
+            { session }
+        );
+        await FriendList.findOneAndUpdate(
+            { user: receiverId },
+            { $pull: { friends: senderId } },
+            { session }
+        );
+
+        // Remove the existing friend request if it exists
+        await FriendRequest.findOneAndDelete({ sender: senderId, receiver: receiverId });
+
+        // Commit the transaction if everything goes fine
+        await session.commitTransaction();
+        res.status(200).json({ message: "Unfollowed successfully, friend request removed if exists" });
+    } catch (error) {
+        // Abort the transaction on error
+        await session.abortTransaction();
+        res.status(500).json({ error: "Server error: " + error.message });
+    } finally {
+        // End the session
+        session.endSession();
+    }
+};
 
 
 
 
-export { register, login, logout,refreshAccessToken , getCurrentUser, recommendFriends, searchUsers, sendFriendRequest, fetchFriendRequest,respondToFriendRequest, getFriendList };
+
+
+
+export { register, login, logout,refreshAccessToken , getCurrentUser, recommendFriends, searchUsers, sendFriendRequest, fetchFriendRequest,respondToFriendRequest, getFriendList, unfollowUser };

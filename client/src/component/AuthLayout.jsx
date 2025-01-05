@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 
 const AuthLayout = ({ children }) => {
   const users = useSelector((state) => state.users);
-  const isAuthenticated = users ? users.isAuthenticated : false;
+  const isAuthenticated = users?.isAuthenticated || false;
   const token = !!localStorage.getItem("accessToken");
 
   if (isAuthenticated === undefined || !token) {

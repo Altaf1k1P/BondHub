@@ -10,7 +10,8 @@ import {
     sendFriendRequest, 
     fetchFriendRequest,
     respondToFriendRequest, 
-    getFriendList 
+    getFriendList ,
+    unfollowUser
 } from "../controller/user.controller.js"
 import {verifyJWT} from '../middleware/auth.middleware.js'
 
@@ -36,8 +37,8 @@ router.route("/recommend-friends/:userId").get(verifyJWT, recommendFriends)
 // Search users
 router.route("/search-users").get(verifyJWT, searchUsers)
 
-// Send friend request
-router.route("/send-friend-request").post(verifyJWT, sendFriendRequest)
+// POST route for sending friend requests
+router.post('/send-friend-request', verifyJWT, sendFriendRequest);
 
 // Fetch friend requests
 router.route("/fetch-friend-requests").get(verifyJWT, fetchFriendRequest)
@@ -45,6 +46,8 @@ router.route("/fetch-friend-requests").get(verifyJWT, fetchFriendRequest)
 // Respond to friend request
 router.route("/respond-to-friend-request").post(verifyJWT, respondToFriendRequest)
 
+// Unfollow user
+router.route("/unfollow-user").post(verifyJWT, unfollowUser)
 // Get friend list
 router.route("/get-friend-list/:userId").get(verifyJWT, getFriendList);
 

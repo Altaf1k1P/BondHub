@@ -51,7 +51,7 @@ function Login() {
         </button>
       </form>
 
-      {error && <div className="alert alert-danger mt-3">{error}</div>}
+      {error && <div className="alert alert-danger mt-3">{error?.massege}</div>}
     </div>
   );
 }

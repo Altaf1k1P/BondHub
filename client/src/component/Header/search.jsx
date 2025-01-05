@@ -21,7 +21,7 @@ function Search() {
     }, [query, dispatch]);
 
     const handleSendFriendRequest = (receiverId) => {
-        if (user && user._id) {
+        if (user && user.userId) {
             dispatch(sendFriendRequest({ senderId: user._id, receiverId }));
         }
     };
@@ -41,7 +41,7 @@ function Search() {
                 {query.trim() && recommendations.length > 0 ? (
                     <ul>
                         {recommendations.map((user) => (
-                            <li key={user._id} className="search-result-item">
+                            <li key={user?.userId} className="search-result-item">
                                  <img 
                             src={user.profilePicture || defaultProfilePicture} 
                             alt="Profile" 
@@ -51,7 +51,7 @@ function Search() {
                                     <p className="username">{user.username}</p>
                                     <p className="email">{user.email}</p>
                                     <button
-                                        onClick={() => handleSendFriendRequest(user._id)}
+                                        onClick={() => handleSendFriendRequest(user?.userId)}
                                         className="btn btn-primary"
                                     >
                                         Send Friend Request

@@ -77,7 +77,7 @@ export const fetchFriends = createAsyncThunk(
     async (userId, thunkAPI) => {
         try {
             const response = await axiosInstance.get(`/get-friend-list/${userId}`);
-            console.log(response.data);
+            //console.log("aa",response);
             
             return response.data;
         } catch (error) {
@@ -105,7 +105,7 @@ export const fetchFriendRequests = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.get('/fetch-friend-requests');
-            console.log(response.data);
+           // console.log(response.data);
             
             return response.data;
         } catch (error) {
@@ -121,7 +121,7 @@ export const respondToFriendRequest = createAsyncThunk(
     async ({ requestId, status }, thunkAPI) => {
         try {
             const response = await axiosInstance.post('/respond-to-friend-request', { requestId, status });
-            console.log("friend",response.data );
+           // console.log("friend",response.data );
             
             return { requestId, status, friend: response.data.friend };
         } catch (error) {
@@ -143,6 +143,20 @@ export const fetchRecommendations = createAsyncThunk(
     }
 );
 
+
+// Send Friend Request
+export const unfollow = createAsyncThunk(
+    "user/unfollow",
+    async ({ senderId, receiverId }, thunkAPI) => {
+        try {
+            const response = await axiosInstance.post('/unfollow-user', { senderId, receiverId });
+            //console.log(response.data);
+            return response.data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response.data.message);
+        }
+    }
+);
 // Slice
 const userSlice = createSlice({
     name: "users",
@@ -274,6 +288,40 @@ const userSlice = createSlice({
                 state.friends.push(payload.friend);
             }
         });
+        
+        builder.addCase(unfollow.pending, (state, { meta }) => {
+            const receiverId = meta.arg.receiverId;
+        
+            // Optimistically remove the friend from the list
+            state.friends = state.friends.filter((friend) => friend.userId !== receiverId);
+        
+            // Optionally set a specific loading state for unfollow
+            state.isLoading = true;
+            state.error = null;
+        });
+        
+        builder.addCase(unfollow.fulfilled, (state, { payload }) => {
+            // Finalize removal of the friend from the list
+            state.isLoading = false;
+            state.error = null;
+        
+            // Ensure the payload confirms the action (e.g., successful server update)
+            if (payload?.success) {
+                console.log(`Successfully unfollowed user with ID: ${payload.receiverId}`);
+            }
+        });
+        
+        builder.addCase(unfollow.rejected, (state, { meta, payload }) => {
+            const receiverId = meta.arg.receiverId;
+        
+            // Rollback: Restore the friend to the list if the unfollow fails
+            state.friends.push({ userId: receiverId });
+        
+            state.isLoading = false;
+            state.error = payload || "Failed to unfollow the user. Please try again.";
+        });
+        
+        
     },
 });
 

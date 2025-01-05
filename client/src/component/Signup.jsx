@@ -64,7 +64,7 @@ function Signup() {
         </button>
       </form>
 
-      {error && <div className="alert alert-danger mt-3">{error}</div>}
+      {error && <div className="alert alert-danger mt-3">{error?.message}</div>}
     </div>
   );
 }
