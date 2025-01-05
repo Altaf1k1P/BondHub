@@ -8,6 +8,7 @@ import {
     recommendFriends, 
     searchUsers, 
     sendFriendRequest, 
+    fetchFriendRequest,
     respondToFriendRequest, 
     getFriendList 
 } from "../controller/user.controller.js"
@@ -38,11 +39,15 @@ router.route("/search-users").get(verifyJWT, searchUsers)
 // Send friend request
 router.route("/send-friend-request").post(verifyJWT, sendFriendRequest)
 
+// Fetch friend requests
+router.route("/fetch-friend-requests").get(verifyJWT, fetchFriendRequest)
+
 // Respond to friend request
 router.route("/respond-to-friend-request").post(verifyJWT, respondToFriendRequest)
 
 // Get friend list
-router.route("/get-friend-list").get(verifyJWT, getFriendList)
+router.route("/get-friend-list/:userId").get(verifyJWT, getFriendList);
+
 
 
 export default router;

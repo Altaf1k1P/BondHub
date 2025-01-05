@@ -101,11 +101,18 @@ const login = async (req, res) => {
   
       const accessToken = await user.generateAccessToken();
       const refreshToken = await user.generateRefreshToken();
-  
-      res.status(200).json({
+      const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+    };
+      res.status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({
         message: "Login successful",
         user: {
-          _id: user._id,
+          userId: user._id,
           username: user.username,
           email: user.email,
           profilePicture: user.profilePicture,
@@ -209,7 +216,7 @@ const refreshAccessToken = async (req, res) => {
     }
 };
 // Send Friend Request
- const sendFriendRequest = async (req, res) => {
+const sendFriendRequest = async (req, res) => {
     const { senderId, receiverId } = req.body;
 
     if (senderId === receiverId) {
@@ -217,6 +224,14 @@ const refreshAccessToken = async (req, res) => {
     }
 
     try {
+        // Check if both sender and receiver exist
+        const sender = await User.findById(senderId);
+        const receiver = await User.findById(receiverId);
+
+        if (!sender || !receiver) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
         const existingRequest = await FriendRequest.findOne({ sender: senderId, receiver: receiverId });
 
         if (existingRequest) {
@@ -230,8 +245,23 @@ const refreshAccessToken = async (req, res) => {
     }
 };
 
+const fetchFriendRequest = async (req, res) => {
+    const userId = req.user._id;  // Assuming the user is authenticated
+
+    try {
+        const requests = await FriendRequest.find({ receiver: userId }).populate('sender', 'username profilePicture');
+        res.status(200).json(requests);
+    } catch (error) {
+        res.status(500).json({ error: "Server error: " + error.message });
+    }
+}
+
+
+
 // Respond to Friend Request
 const respondToFriendRequest = async (req, res) => {
+    console.log(req.body);
+    
     const { requestId, status } = req.body;
 
     if (!["accepted", "rejected"].includes(status)) {
@@ -239,14 +269,21 @@ const respondToFriendRequest = async (req, res) => {
     }
 
     try {
-        const request = await FriendRequest.findById(requestId);
+        const request = await FriendRequest.findById(requestId).populate("sender", "username profilePicture email");
 
         if (!request) {
             return res.status(404).json({ error: "Friend request not found" });
         }
 
         if (status === "accepted") {
-            // Add friends to each other's friend list
+            await User.findByIdAndUpdate(request.sender, {
+                $addToSet: { friends: request.receiver }
+            });
+            await User.findByIdAndUpdate(request.receiver, {
+                $addToSet: { friends: request.sender }
+            });
+
+            // Optional: Add the friends to the FriendList collection as well
             await FriendList.findOneAndUpdate(
                 { user: request.sender },
                 { $addToSet: { friends: request.receiver } },
@@ -269,12 +306,14 @@ const respondToFriendRequest = async (req, res) => {
 };
 
 // Get Friend List
- const getFriendList = async (req, res) => {
+const getFriendList = async (req, res) => {
+    console.log("Fetching friend list for user:", req.params.userId);
     const { userId } = req.params;
 
     try {
         const friendList = await FriendList.findOne({ user: userId }).populate("friends", "username email profilePicture");
-
+          console.log("list", friendList);
+          
         if (!friendList) {
             return res.status(404).json({ error: "No friends found" });
         }
@@ -286,7 +325,7 @@ const respondToFriendRequest = async (req, res) => {
 };
 
 // Recommend Friends
- const recommendFriends = async (req, res) => {
+const recommendFriends = async (req, res) => {
     const { userId } = req.params;
 
     try {
@@ -297,17 +336,32 @@ const respondToFriendRequest = async (req, res) => {
         }
 
         const mutualFriends = await FriendList.aggregate([
-            { $match: { user: { $in: userFriends.friends.map((friend) => friend._id) } } },
+            { 
+                $match: { 
+                    user: { $ne: mongoose.Types.ObjectId(userId) },
+                    friends: { $in: userFriends.friends.map((friend) => friend._id) },
+                },
+            },
             { $unwind: "$friends" },
-            { $group: { _id: "$friends", count: { $sum: 1 } } },
+            { 
+                $group: { 
+                    _id: "$friends", 
+                    count: { $sum: 1 } 
+                },
+            },
             { $match: { count: { $gt: 1 } } },
             { $sort: { count: -1 } },
+            { $limit: 10 },
         ]);
 
-        res.status(200).json(mutualFriends);
+        const recommendations = mutualFriends.filter((friend) => 
+            !userFriends.friends.some((f) => f._id.equals(friend._id))
+        );
+
+        res.status(200).json({recommendations});
     } catch (error) {
         res.status(500).json({ error: "Server error: " + error.message });
     }
 };
 
-export { register, login, logout,refreshAccessToken , getCurrentUser, recommendFriends, searchUsers, sendFriendRequest, respondToFriendRequest, getFriendList };
+export { register, login, logout,refreshAccessToken , getCurrentUser, recommendFriends, searchUsers, sendFriendRequest, fetchFriendRequest,respondToFriendRequest, getFriendList };

@@ -1,20 +1,16 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../helper/axiosInstance.js";
 
-
-
 // Initial State
 const initialState = {
-    user: null, // Stores authenticated user data
-    isAuthenticated: false, // Stores authentication status
-    friends: [], // Stores user's friends list
-    friendRequests: [], // Stores pending friend requests
-    recommendations: [], 
+    user: null,
+    isAuthenticated: false,
+    friends: [],
+    friendRequests: [],
+    recommendations: [],
     isLoading: false,
     error: null,
-   
 };
-
 
 // Thunks
 
@@ -37,9 +33,7 @@ export const loginUser = createAsyncThunk(
     async (credentials, thunkAPI) => {
         try {
             const response = await axiosInstance.post("/auth/login", credentials, { withCredentials: true });
-            console.log("loginUser", response.data);
-            localStorage.setItem("accessToken", response.data.tokens.accessToken); // Save token
-            
+            localStorage.setItem("accessToken", response.data.tokens.accessToken);
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -47,7 +41,7 @@ export const loginUser = createAsyncThunk(
     }
 );
 
-//search 
+// Search Users
 export const searchUsers = createAsyncThunk(
     'search/searchUsers',
     async (query, { rejectWithValue }) => {
@@ -55,7 +49,7 @@ export const searchUsers = createAsyncThunk(
             const response = await axiosInstance.get('/search-users', {
                 params: { query },
             });
-            return response.data; // Returns the array of users
+            return response.data;
         } catch (error) {
             return rejectWithValue(
                 error.response?.data?.error || 'Failed to search users'
@@ -82,7 +76,9 @@ export const fetchFriends = createAsyncThunk(
     "user/fetchFriends",
     async (userId, thunkAPI) => {
         try {
-            const response = await axiosInstance.get(`send-friend-request/friends/${userId}`);
+            const response = await axiosInstance.get(`/get-friend-list/${userId}`);
+            console.log(response.data);
+            
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -103,12 +99,26 @@ export const sendFriendRequest = createAsyncThunk(
     }
 );
 
-export const RespondToRriendRequest = createAsyncThunk(
-    "user/RespondToRriendRequest",
-    async ({ requestId }, thunkAPI) => {
+// Fetch Friend Requests
+export const fetchFriendRequests = createAsyncThunk(
+    'users/fetchFriendRequests',
+    async (_, { rejectWithValue }) => {
         try {
-            const response = await axiosInstance.post('/respond-to-friend-request', { requestId });
+            const response = await axiosInstance.get('/fetch-friend-requests');
             return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response.data);
+        }
+    }
+);
+
+// Respond to Friend Request
+export const respondToFriendRequest = createAsyncThunk(
+    "user/respondToFriendRequest",
+    async ({ requestId, action }, thunkAPI) => {
+        try {
+            const response = await axiosInstance.post('/respond-to-friend-request', { requestId, action });
+            return { requestId, action, friend: response.data.friend };
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
         }
@@ -120,7 +130,7 @@ export const fetchRecommendations = createAsyncThunk(
     "user/fetchRecommendations",
     async (userId, thunkAPI) => {
         try {
-            const response = await axiosInstance.get(`/friends/recommend/${userId}`);
+            const response = await axiosInstance.get(`/recommend-friends/${userId}`);
             return response.data;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
@@ -145,7 +155,6 @@ const userSlice = createSlice({
         }
     },
     extraReducers: (builder) => {
-        // Registration
         builder.addCase(registerUser.pending, (state) => {
             state.isLoading = true;
             state.error = null;
@@ -153,8 +162,6 @@ const userSlice = createSlice({
         builder.addCase(registerUser.fulfilled, (state, action) => {
             state.isLoading = false;
             state.isAuthenticated = true;
-            console.log("status",state.isAuthenticated);
-            
             state.user = action.payload.user;
         });
         builder.addCase(registerUser.rejected, (state, action) => {
@@ -162,94 +169,108 @@ const userSlice = createSlice({
             state.error = action.payload;
         });
 
-        // Login
         builder.addCase(loginUser.pending, (state) => {
             state.isLoading = true;
             state.error = null;
         });
-        builder.addCase(loginUser.fulfilled, (state, {payload}) => {
+        builder.addCase(loginUser.fulfilled, (state, { payload }) => {
             state.isLoading = false;
-            state.isAuthenticated = true; 
-            console.log(state.isAuthenticated);
-            
-            state.user = payload.user;// Save the user data
+            state.isAuthenticated = true;
+            state.user = payload.user;
         });
-        builder.addCase(loginUser.rejected, (state, {payload}) => {
+        builder.addCase(loginUser.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
         });
 
-        // Fetch Current User
         builder.addCase(fetchCurrentUser.pending, (state) => {
             state.isLoading = true;
             state.error = null;
         });
-        builder.addCase(fetchCurrentUser.fulfilled, (state, {payload}) => {
+        builder.addCase(fetchCurrentUser.fulfilled, (state, { payload }) => {
             state.isLoading = false;
             state.user = payload;
         });
-        builder.addCase(fetchCurrentUser.rejected, (state, {payload}) => {
+        builder.addCase(fetchCurrentUser.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
         });
 
-        // Fetch Friends
         builder.addCase(fetchFriends.pending, (state) => {
             state.isLoading = true;
             state.error = null;
         });
-        builder.addCase(fetchFriends.fulfilled, (state, {payload}) => {
+        builder.addCase(fetchFriends.fulfilled, (state, { payload }) => {
             state.isLoading = false;
             state.friends = payload.friends;
         });
-        builder.addCase(fetchFriends.rejected, (state, {payload}) => {
+        builder.addCase(fetchFriends.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
         });
 
-        // Send Friend Request
         builder.addCase(sendFriendRequest.pending, (state) => {
             state.isLoading = true;
             state.error = null;
         });
-        builder.addCase(sendFriendRequest.fulfilled, (state, {payload}) => {
+        builder.addCase(sendFriendRequest.fulfilled, (state, { payload }) => {
             state.isLoading = false;
             state.friendRequests.push(payload.friendRequest);
         });
-        builder.addCase(sendFriendRequest.rejected, (state,{payload}) => {
+        builder.addCase(sendFriendRequest.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
         });
 
-        // Fetch Recommendations
+        builder.addCase(fetchFriendRequests.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchFriendRequests.fulfilled, (state, { payload }) => {
+            state.isLoading = false;
+            state.friendRequests = payload;
+        });
+        builder.addCase(fetchFriendRequests.rejected, (state, { payload }) => {
+            state.isLoading = false;
+            state.error = payload;
+        });
+
         builder.addCase(fetchRecommendations.pending, (state) => {
             state.isLoading = true;
             state.error = null;
         });
-        builder.addCase(fetchRecommendations.fulfilled, (state, {payload}) => {
+        builder.addCase(fetchRecommendations.fulfilled, (state, { payload }) => {
             state.isLoading = false;
             state.recommendations = payload;
         });
-        builder.addCase(fetchRecommendations.rejected, (state, {payload}) => {
+        builder.addCase(fetchRecommendations.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
-        })
-        .addCase(searchUsers.pending, (state) => {
+        });
+
+        builder.addCase(searchUsers.pending, (state) => {
             state.isLoading = true;
             state.error = null;
-            state.recommendations = []
-        })
-        .addCase(searchUsers.fulfilled, (state, {payload}) => {
+            state.recommendations = [];
+        });
+        builder.addCase(searchUsers.fulfilled, (state, { payload }) => {
             state.isLoading = false;
-            state.recommendations = payload
-        })
-        .addCase(searchUsers.rejected, (state, {payload}) => {
+            state.recommendations = payload;
+        });
+        builder.addCase(searchUsers.rejected, (state, { payload }) => {
             state.isLoading = false;
             state.error = payload;
+        });
+
+        builder.addCase(respondToFriendRequest.fulfilled, (state, { payload }) => {
+            state.friendRequests = state.friendRequests.filter(request => request._id !== payload.requestId);
+            if (payload.action === 'accepted') {
+                state.friends.push(payload.friend);
+            }
         });
     },
 });
 
-export const { logoutUser } = userSlice.actions;
+export const { logoutUser, clearSearch } = userSlice.actions;
 
 export default userSlice.reducer;

@@ -29,12 +29,12 @@ function Navbar() {
                         {isAuthenticated ? (
                             <>
                                 <li className="nav-item">
-                                    <Link className="nav-link text-light" to="/home">
+                                    <Link className="nav-link text-light" to="/">
                                         Home
                                     </Link>
                                 </li>
                                 <li className="nav-item">
-                                    <Link className="nav-link text-light" to="/friends">
+                                    <Link className="nav-link text-light" to={`/friends/${user?.userId}`}>
                                         Friends
                                     </Link>
                                 </li>
@@ -43,7 +43,7 @@ function Navbar() {
                                         <i className="bi bi-bell"></i>
                                     </Link>
                                 </li>
-                                <li className="nav-item d-flex align-items-center">
+                                <li className="nav-item nav-item-custom d-flex align-items-center">
                                     <Search />
                                 </li>
                                 <li className="nav-item">

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { searchUsers } from "../../store/userSlice.js";
+import { searchUsers, sendFriendRequest } from "../../store/userSlice.js";
 
 function Search() {
     const [query, setQuery] = useState("");
     const dispatch = useDispatch();
-    const { isLoading, error, recommendations } = useSelector((state) => state.users);
+    const { isLoading, error, recommendations, user } = useSelector((state) => state.users);
 
+
+    const defaultProfilePicture = "/defaultAvtar.webp";
     // Trigger search as the user types with debounce
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -17,6 +19,12 @@ function Search() {
 
         return () => clearTimeout(timeoutId); // Cleanup timeout
     }, [query, dispatch]);
+
+    const handleSendFriendRequest = (receiverId) => {
+        if (user && user._id) {
+            dispatch(sendFriendRequest({ senderId: user._id, receiverId }));
+        }
+    };
 
     return (
         <div className="search-container">
@@ -34,14 +42,20 @@ function Search() {
                     <ul>
                         {recommendations.map((user) => (
                             <li key={user._id} className="search-result-item">
-                                <img
-                                    src={user.profilePicture || "/default-avatar.png"}
-                                    alt={user.username}
-                                    className="profile-picture"
-                                />
+                                 <img 
+                            src={user.profilePicture || defaultProfilePicture} 
+                            alt="Profile" 
+                            style={{ width: "50px", height: "50px", borderRadius: "50%" }} 
+                        />
                                 <div>
                                     <p className="username">{user.username}</p>
                                     <p className="email">{user.email}</p>
+                                    <button
+                                        onClick={() => handleSendFriendRequest(user._id)}
+                                        className="btn btn-primary"
+                                    >
+                                        Send Friend Request
+                                    </button>
                                 </div>
                             </li>
                         ))}
