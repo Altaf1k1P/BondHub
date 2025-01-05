@@ -19,6 +19,7 @@ function Home() {
     return (
         <div>
             <h2>Mutual Friends</h2>
+            <p>please search for recommendations</p>
             {isLoading ? (
                 <p>Loading...</p>
             ) : recommendations.length > 0 ? (
