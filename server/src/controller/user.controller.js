@@ -264,11 +264,13 @@ const respondToFriendRequest = async (req, res) => {
     
     const { requestId, status } = req.body;
 
+    // Validate the status
     if (!["accepted", "rejected"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
     }
 
     try {
+        // Find the friend request by ID and populate sender info
         const request = await FriendRequest.findById(requestId).populate("sender", "username profilePicture email");
 
         if (!request) {
@@ -276,6 +278,7 @@ const respondToFriendRequest = async (req, res) => {
         }
 
         if (status === "accepted") {
+            // Add sender and receiver to each other's friends list
             await User.findByIdAndUpdate(request.sender, {
                 $addToSet: { friends: request.receiver }
             });
@@ -283,7 +286,7 @@ const respondToFriendRequest = async (req, res) => {
                 $addToSet: { friends: request.sender }
             });
 
-            // Optional: Add the friends to the FriendList collection as well
+            // Optionally: Add the friends to the FriendList collection as well
             await FriendList.findOneAndUpdate(
                 { user: request.sender },
                 { $addToSet: { friends: request.receiver } },
@@ -296,6 +299,12 @@ const respondToFriendRequest = async (req, res) => {
             );
         }
 
+        if (status === "rejected") {
+            // Delete the friend request when rejected
+            await FriendRequest.findByIdAndDelete(requestId);
+        }
+
+        // Update the request status (accepted or rejected)
         request.status = status;
         await request.save();
 
@@ -304,6 +313,7 @@ const respondToFriendRequest = async (req, res) => {
         res.status(500).json({ error: "Server error: " + error.message });
     }
 };
+
 
 // Get Friend List
 const getFriendList = async (req, res) => {
@@ -326,42 +336,47 @@ const getFriendList = async (req, res) => {
 
 // Recommend Friends
 const recommendFriends = async (req, res) => {
-    const { userId } = req.params;
+    const { requestId, status } = req.body; // `requestId` is the friend request ID, and `status` is 'accept' or 'reject'.
 
     try {
-        const userFriends = await FriendList.findOne({ user: userId }).populate("friends");
+        const friendRequest = await FriendRequest.findById(requestId);
 
-        if (!userFriends) {
-            return res.status(404).json({ error: "No friends found" });
+        if (!friendRequest) {
+            return res.status(404).json({ error: "Friend request not found" });
         }
 
-        const mutualFriends = await FriendList.aggregate([
-            { 
-                $match: { 
-                    user: { $ne: mongoose.Types.ObjectId(userId) },
-                    friends: { $in: userFriends.friends.map((friend) => friend._id) },
-                },
-            },
-            { $unwind: "$friends" },
-            { 
-                $group: { 
-                    _id: "$friends", 
-                    count: { $sum: 1 } 
-                },
-            },
-            { $match: { count: { $gt: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 10 },
-        ]);
+        if (status === 'accept') {
+            // Add the sender to the receiver's friend list
+            await FriendList.updateOne(
+                { user: friendRequest.receiver },
+                { $addToSet: { friends: friendRequest.sender } },
+                { upsert: true }
+            );
 
-        const recommendations = mutualFriends.filter((friend) => 
-            !userFriends.friends.some((f) => f._id.equals(friend._id))
-        );
+            // Add the receiver to the sender's friend list
+            await FriendList.updateOne(
+                { user: friendRequest.sender },
+                { $addToSet: { friends: friendRequest.receiver } },
+                { upsert: true }
+            );
 
-        res.status(200).json({recommendations});
+            // Optionally delete the friend request
+            await FriendRequest.findByIdAndDelete(requestId);
+            return res.status(200).json({ message: "Friend request accepted successfully" });
+        } else if (status === 'reject') {
+            // Delete the friend request
+            await FriendRequest.findByIdAndDelete(requestId);
+            return res.status(200).json({ message: "Friend request rejected successfully" });
+        } else {
+            return res.status(400).json({ error: "Invalid status" });
+        }
     } catch (error) {
         res.status(500).json({ error: "Server error: " + error.message });
     }
 };
+
+
+
+
 
 export { register, login, logout,refreshAccessToken , getCurrentUser, recommendFriends, searchUsers, sendFriendRequest, fetchFriendRequest,respondToFriendRequest, getFriendList };

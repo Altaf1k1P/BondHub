@@ -105,6 +105,8 @@ export const fetchFriendRequests = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await axiosInstance.get('/fetch-friend-requests');
+            console.log(response.data);
+            
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response.data);
@@ -112,13 +114,16 @@ export const fetchFriendRequests = createAsyncThunk(
     }
 );
 
+
 // Respond to Friend Request
 export const respondToFriendRequest = createAsyncThunk(
     "user/respondToFriendRequest",
-    async ({ requestId, action }, thunkAPI) => {
+    async ({ requestId, status }, thunkAPI) => {
         try {
-            const response = await axiosInstance.post('/respond-to-friend-request', { requestId, action });
-            return { requestId, action, friend: response.data.friend };
+            const response = await axiosInstance.post('/respond-to-friend-request', { requestId, status });
+            console.log("friend",response.data );
+            
+            return { requestId, status, friend: response.data.friend };
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response.data.message);
         }
@@ -263,8 +268,9 @@ const userSlice = createSlice({
         });
 
         builder.addCase(respondToFriendRequest.fulfilled, (state, { payload }) => {
+            state.isLoading = false;
             state.friendRequests = state.friendRequests.filter(request => request._id !== payload.requestId);
-            if (payload.action === 'accepted') {
+            if (payload.status === 'accepted') {
                 state.friends.push(payload.friend);
             }
         });

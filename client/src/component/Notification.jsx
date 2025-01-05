@@ -1,38 +1,51 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchFriendRequests, respondToFriendRequest } from "../store/userSlice";
+import { fetchFriendRequests, respondToFriendRequest } from "../store/userSlice.js";
 
 function Notifications() {
     const dispatch = useDispatch();
-    const { friendRequests, isLoading } = useSelector((state) => state.users);
+    const { friendRequests, isLoading, error } = useSelector((state) => state.users);
 
     const defaultProfilePicture = "/defaultAvtar.webp";
+
     useEffect(() => {
         dispatch(fetchFriendRequests());
     }, [dispatch]);
 
-    const handleResponse = (requestId, action) => {
-        console.log("Sending response:", { requestId, action });
-        dispatch(respondToFriendRequest({ requestId, action }));
+    const handleResponse = (requestId, status) => {
+        dispatch(respondToFriendRequest({ requestId, status }));
     };
-    
 
     return (
         <div>
             <h2>Friend Requests</h2>
             {isLoading ? (
                 <p>Loading...</p>
+            ) : error ? (
+                <div>Error: {error}</div>
             ) : friendRequests.length > 0 ? (
                 friendRequests.map((request) => (
-                    <div key={request._id}>
-                        <img 
-                            src={request.sender.profilePicture || defaultProfilePicture} 
-                            alt="Profile" 
-                            style={{ width: "50px", height: "50px", borderRadius: "50%" }} 
+                    <div key={request._id} style={{ marginBottom: "10px" }}>
+                        <img
+                            src={request.sender.profilePicture || defaultProfilePicture}
+                            alt="Profile"
+                            style={{ width: "50px", height: "50px", borderRadius: "50%" }}
                         />
                         <p>{request.sender.username}</p>
-                        <button onClick={() => handleResponse(request._id, "accepted")}>Accept</button>
-                        <button onClick={() => handleResponse(request._id, "rejected")}>Reject</button>
+                        <button
+                            onClick={() => handleResponse(request._id, "accepted")}
+                            className="btn btn-success"
+                            disabled={isLoading}
+                        >
+                            Accept
+                        </button>
+                        <button
+                            onClick={() => handleResponse(request._id, "rejected")}
+                            className="btn btn-danger"
+                            disabled={isLoading}
+                        >
+                            Reject
+                        </button>
                     </div>
                 ))
             ) : (

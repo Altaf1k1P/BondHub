@@ -24,13 +24,13 @@ function FriendList() {
                 <p>Loading...</p>
             ) : friends.length > 0 ? (
                 friends.map((friend) => (
-                    <div key={friend._id}>
+                    <div key={friend?._id}>
                         <img 
-                            src={friend.profilePicture || defaultProfilePicture} 
+                            src={friend?.profilePicture || defaultProfilePicture} 
                             alt="Profile" 
                             style={{ width: "50px", height: "50px", borderRadius: "50%" }} 
                         />
-                        <p>{friend.username}</p>
+                        <p>{friend?.username}</p>
                         <button>Unfriend</button>
                     </div>
                 ))

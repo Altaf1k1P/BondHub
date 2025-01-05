@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchRecommendations } from "../store/userSlice";
+import { fetchRecommendations } from "../store/userSlice.js";
 
 function Home() {
     const dispatch = useDispatch();
